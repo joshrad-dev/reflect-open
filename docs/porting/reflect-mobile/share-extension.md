@@ -3,7 +3,7 @@
 **v2 status: implemented.** The `ShareExtension` target
 (`gen/apple/ShareExtension/`, declared in `ios.project.yml`) accepts URLs,
 web pages, and text from the share sheet and spools Plan 11 capture
-envelopes into the App Group inbox (`group.app.reflect/inbox/`) — entirely
+envelopes into the App Group inbox (`group.dev.joshrad.reflect/inbox/`) — entirely
 offline, no network, no graph access. The main app relays them into
 `.reflect/inbox/` (`capture_shared_inbox_relay`, `src-tauri/src/capture.rs`)
 and the shared drain/enrich pipeline materializes them; the mobile tree
@@ -88,7 +88,7 @@ There is no API to POST to — the design inverts from *send to server* to
   member, never a new envelope variant. Safari's in-page description rides
   the new optional `metaDescription` field, which the drain writes into the
   raw save and enrichment replaces in place.
-- **App Group provisioned with this wave**: `group.app.reflect` on both
+- **App Group provisioned with this wave**: `group.dev.joshrad.reflect` on both
   targets; the extension writes `<uuid>.json` atomically (tmp + same-volume
   rename), the app-side Rust relay moves committed `.json` files into the
   graph inbox (copy + atomic write + delete — the containers are different
@@ -103,7 +103,7 @@ There is no API to POST to — the design inverts from *send to server* to
   `CODE_SIGN_ENTITLEMENTS`. There is no xcodegen `entitlements:` block, so
   regens (including `tauri ios init`) do not touch the files at all; the old
   wipe-to-empty-dict failure mode cannot recur, and the dev flavor
-  (`app.reflect.ios.dev`, `group.app.reflect.dev`) gets its own capability
+  (`dev.joshrad.reflect.ios.dev`, `group.dev.joshrad.reflect.dev`) gets its own capability
   set.
 - **CI signing must preserve the App Group.** Tauri's App Store Connect
   API-key flow (the TestFlight workflow) archives with signing disabled and
@@ -114,4 +114,4 @@ There is no API to POST to — the design inverts from *send to server* to
   because Xcode signs during archive). A post-build phase on the
   ShareExtension target ad-hoc signs the appex with its entitlements when
   `CODE_SIGNING_ALLOWED=NO`, and `release-ios.mjs` refuses to accept or
-  upload an IPA whose appex lacks `group.app.reflect`.
+  upload an IPA whose appex lacks `group.dev.joshrad.reflect`.

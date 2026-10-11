@@ -15,11 +15,11 @@ runs the usual sidecar step and starts Vite through Tauri's
 instead.
 
 The script applies `src-tauri/tauri.ios.dev.conf.json`, and debug builds are
-the dev flavor: they install as `Reflect Dev` (`app.reflect.ios.dev`, own
-icon, own `group.app.reflect.dev` App Group, no iCloud), so they coexist with
+the dev flavor: they install as `Reflect Dev` (`dev.joshrad.reflect.ios.dev`, own
+icon, own `group.dev.joshrad.reflect.dev` App Group, no iCloud), so they coexist with
 the TestFlight/App Store app instead of colliding with its install record.
 Plain `tauri ios dev` no longer works on its own: it would build the dev
-bundle id but try to launch `app.reflect.ios`.
+bundle id but try to launch `dev.joshrad.reflect.ios`.
 
 To see simulator names:
 

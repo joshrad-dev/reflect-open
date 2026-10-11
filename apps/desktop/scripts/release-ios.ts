@@ -20,8 +20,8 @@ import {
   TAURI_SRC_DIR,
 } from './helpers.ts'
 
-const BUNDLE_IDENTIFIER = 'app.reflect.ios'
-const APP_GROUP = 'group.app.reflect'
+const BUNDLE_IDENTIFIER = 'dev.joshrad.reflect.ios'
+const APP_GROUP = 'group.dev.joshrad.reflect'
 const SENTRY_DSN_PATTERN =
   /^https:\/\/[0-9a-f]{32}@o463484\.ingest\.us\.sentry\.io\/4511705649971200$/
 const BUILD_DIR = join(TAURI_SRC_DIR, 'gen', 'apple', 'build')

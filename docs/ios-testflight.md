@@ -12,9 +12,9 @@ build, check, upload.
 
 ## What You Need
 
-1. **An App Store Connect app for `app.reflect.ios`.** The iOS template already
-   sets `PRODUCT_BUNDLE_IDENTIFIER` to `app.reflect.ios` and `DEVELOPMENT_TEAM`
-   to `789ULN5MZB`. This is intentionally separate from the old Capacitor mobile
+1. **An App Store Connect app for `dev.joshrad.reflect.ios`.** The iOS template already
+   sets `PRODUCT_BUNDLE_IDENTIFIER` to `dev.joshrad.reflect.ios` and `DEVELOPMENT_TEAM`
+   to `RCP44SHT3W`. This is intentionally separate from the old Capacitor mobile
    app (`app.reflect.ReflectMobile`), so TestFlight uploads from this repo do not
    replace the existing mobile app record. The release helper verifies the IPA
    bundle identifier before upload.
@@ -109,16 +109,16 @@ workflow.
 
 ## Troubleshooting
 
-- **`exportArchive No Accounts`** or **`No profiles for 'app.reflect.ios' were
+- **`exportArchive No Accounts`** or **`No profiles for 'dev.joshrad.reflect.ios' were
   found`**: xcodebuild could not provision the App Store build. Sign into Xcode
   with a team account that can create an App Store provisioning profile for
-  `app.reflect.ios`, or set the App Store Connect API key env vars.
-- **`Cannot determine the Apple ID from Bundle ID 'app.reflect.ios'`**: the
+  `dev.joshrad.reflect.ios`, or set the App Store Connect API key env vars.
+- **`Cannot determine the Apple ID from Bundle ID 'dev.joshrad.reflect.ios'`**: the
   bundle id exists for signing, but no App Store Connect app record exists yet.
-  Create a new iOS app in App Store Connect for `app.reflect.ios`; do not reuse
+  Create a new iOS app in App Store Connect for `dev.joshrad.reflect.ios`; do not reuse
   the old Capacitor app record (`app.reflect.ReflectMobile`).
-- **`Automatic signing cannot register bundle identifier "app.reflect.ios.<ext>"`**
-  (with **`No profiles for 'app.reflect.ios.<ext>' were found`**): a NEW app
+- **`Automatic signing cannot register bundle identifier "dev.joshrad.reflect.ios.<ext>"`**
+  (with **`No profiles for 'dev.joshrad.reflect.ios.<ext>' were found`**): a NEW app
   extension target (ShareExtension, RecordingWidget, …) is shipping for the
   first time and its bundle identifier does not exist on the developer portal
   yet. The CI App Store Connect key can create provisioning profiles for
