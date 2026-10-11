@@ -1,6 +1,6 @@
 import { useState, type ReactElement } from 'react'
 import { Lock, LockOpen, MoreHorizontal, Pin, PinOff, Share, Trash2 } from 'lucide-react'
-import { errorMessage } from '@reflect/core'
+import { errorMessage, isDaily } from '@reflect/core'
 import { Button } from '@/components/ui/button.tsx'
 import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer.tsx'
 import { useNoteRowState } from '@/hooks/use-note-row.ts'
@@ -113,18 +113,20 @@ export function NoteActionsMenu({ path, onDeleted }: NoteActionsMenuProps): Reac
               <Share />
               Share
             </Button>
-            <Button
-              variant="ghost"
-              size="lg"
-              className="h-12 justify-start gap-3 text-base text-destructive hover:text-destructive"
-              onClick={() => {
-                setActionsOpen(false)
-                setConfirmingDelete(true)
-              }}
-            >
-              <Trash2 />
-              Delete
-            </Button>
+            {!isDaily(path) && (
+              <Button
+                variant="ghost"
+                size="lg"
+                className="h-12 justify-start gap-3 text-base text-destructive hover:text-destructive"
+                onClick={() => {
+                  setActionsOpen(false)
+                  setConfirmingDelete(true)
+                }}
+              >
+                <Trash2 />
+                Delete
+              </Button>
+            )}
           </div>
         </DrawerContent>
       </Drawer>

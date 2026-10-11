@@ -4,6 +4,13 @@ import { contextSidebarTarget } from './sidebar-route.ts'
 const TODAY = '2026-06-09'
 
 describe('contextSidebarTarget', () => {
+  it('keeps daily context when a daily is opened as a single note', () => {
+    expect(contextSidebarTarget({ kind: 'note', path: 'daily/2026-06-09.md' }, TODAY)).toEqual({
+      kind: 'daily',
+      date: '2026-06-09',
+    })
+  })
+
   it('follows the live clock on the today route', () => {
     expect(contextSidebarTarget({ kind: 'today' }, TODAY)).toEqual({
       kind: 'daily',

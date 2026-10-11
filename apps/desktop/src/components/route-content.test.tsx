@@ -101,6 +101,7 @@ vi.mock('@/providers/settings-provider.tsx', () => ({
   useSettings: () => ({
     settings: {
       editorMarkdownSyntax: 'hide',
+      dateFormat: 'mdy',
       allNotesFilterTags: ['book', 'link', 'person'],
       aiProviders: [],
       defaultAiProviderId: null,
@@ -196,6 +197,19 @@ describe('RouteContent', () => {
   it('renders the daily stream for a daily route, surviving a malformed date', async () => {
     const view = await renderRoute({ kind: 'daily', date: '2026-02-31' })
     await expect.element(page.getByTestId('daily-stream')).toBeInTheDocument()
+    await view.unmount()
+  })
+
+  it('opens a daily from the browser as a single dated editor', async () => {
+    files['daily/2026-06-09.md'] = 'Journal entry.\n'
+    const view = await renderRoute({ kind: 'note', path: 'daily/2026-06-09.md' })
+    await expect.element(page.getByLabelText('Editing daily/2026-06-09.md')).toBeVisible()
+    await expect.element(page.getByTestId('daily-stream')).not.toBeInTheDocument()
+    await expect.element(page.getByRole('heading', { name: /June 9th, 2026/ })).toBeVisible()
+    act(() => editorProbe.onChange?.('Updated journal entry.\n'))
+    await act(() => flushOpenDocuments())
+    expect(files['daily/2026-06-09.md']).toBe('Updated journal entry.\n')
+    expect(Object.keys(files)).toEqual(['daily/2026-06-09.md'])
     await view.unmount()
   })
 

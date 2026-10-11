@@ -4,10 +4,8 @@ import { db } from './db.ts'
 import { recallOrder } from './filtered-search.ts'
 
 /**
- * The All Notes list: every regular note, pinned first then newest, optionally
- * narrowed to one tag. The unfiltered list excludes daily notes — the stream is
- * their home — but a tag filter includes tagged daily notes alongside regular
- * notes. Templates remain boilerplate, not graph content.
+ * The All Notes list: every saved regular or daily note, pinned first then newest,
+ * optionally narrowed to one tag. Templates remain boilerplate, not graph content.
  * Uncapped: the screen virtualizes, the row
  * snippet is the stored `preview` column (derived once at index time), and
  * neither query carries a per-row parameter, so list size has no SQL ceiling.
@@ -33,8 +31,8 @@ export interface NoteListOptions {
 }
 
 /**
- * Notes for the All Notes screen: unfiltered lists include non-daily notes only;
- * tag-filtered lists include both regular and daily notes carrying the tag.
+ * Notes for the All Notes screen, including saved daily notes.
+ * Tag-filtered lists include regular and daily notes carrying the tag.
  * Pinned notes appear first (explicit pin order, then unordered pins), then most
  * recently edited — V1's list order.
  */
@@ -45,7 +43,7 @@ export async function listNotes(options: NoteListOptions = {}): Promise<NoteList
     tag === null
       ? db
           .selectFrom('notes')
-          .where('notes.kind', '=', 'note')
+          .where('notes.kind', 'in', ['note', 'daily'])
           .select([
             'notes.path',
             'notes.title',
@@ -85,7 +83,7 @@ export async function listNotes(options: NoteListOptions = {}): Promise<NoteList
       ? await db
           .selectFrom('tags')
           .innerJoin('notes', 'notes.path', 'tags.notePath')
-          .where('notes.kind', '=', 'note')
+          .where('notes.kind', 'in', ['note', 'daily'])
           .select(['tags.notePath', 'tags.tag'])
           // Order on the folded key so a row's tags read in the same alphabetical
           // order as the facet list, regardless of display casing.
@@ -175,14 +173,14 @@ export async function listRecentNotes(options: RecentNotesOptions): Promise<Rece
   return rows.map((row) => ({ ...row, isPrivate: row.isPrivate !== 0 }))
 }
 
-/** One tag facet over the note list: display casing + non-daily note count. */
+/** One tag facet over the note list: display casing + saved note count. */
 export interface NoteTagFacet {
   tag: string
   count: number
 }
 
 /**
- * Every tag carried by at least one non-daily note, with how many such notes
+ * Every tag carried by at least one regular or daily note, with how many such notes
  * carry it, alphabetical. Grouped on the stored `tag_key`, matching the tag
  * filter (and the `#tag` search token): `#Book` and `#book` are one facet,
  * displayed with one deterministic casing.
@@ -191,7 +189,7 @@ export async function listNoteTags(): Promise<NoteTagFacet[]> {
   return await db
     .selectFrom('tags')
     .innerJoin('notes', 'notes.path', 'tags.notePath')
-    .where('notes.kind', '=', 'note')
+    .where('notes.kind', 'in', ['note', 'daily'])
     .select([sql<string>`min(tags.tag)`.as('tag'), sql<number>`count(*)`.as('count')])
     .groupBy('tags.tagKey')
     .orderBy('tags.tagKey')

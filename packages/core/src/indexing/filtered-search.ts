@@ -44,6 +44,10 @@ export interface FilteredSearchHit {
 }
 
 export interface FilteredSearchOptions {
+  /** Graph-relative directory to browse. Null or omitted searches the whole graph. */
+  directory?: string | null
+  /** Include nested directories when searching within a directory (default false). */
+  includeDescendants?: boolean
   /**
    * Result cap (default 12, the palette's row budget). `null` removes the cap
    * — only sensible for the no-text recall feed behind a virtualized list;
@@ -97,6 +101,14 @@ export async function searchWithFilters(
 ): Promise<FilteredSearchHit[]> {
   const { filters } = parsed
   const limit = options.limit === undefined ? 12 : options.limit
+  const prefix = options.directory ? `${options.directory}/` : null
+  const directoryPredicate =
+    prefix === null
+      ? null
+      : sql<boolean>`
+    substr("notes"."path", 1, length(${prefix})) = ${prefix}
+    ${options.includeDescendants === true ? sql`` : sql`and instr(substr("notes"."path", length(${prefix}) + 1), '/') = 0`}
+  `
 
   // Link filters name a note by title/alias/date; resolve it once up front.
   // An unresolvable target matches nothing (the filter is explicit — silently
@@ -136,6 +148,9 @@ export async function searchWithFilters(
       .where('notes.kind', '!=', 'template')
       .distinct()
 
+    if (directoryPredicate !== null) {
+      taggedQuery = taggedQuery.where(directoryPredicate)
+    }
     for (const tag of remainingTags) {
       taggedQuery = taggedQuery.where((eb) => {
         return eb.exists(
@@ -204,6 +219,9 @@ export async function searchWithFilters(
 
   // Templates never surface in search — they are boilerplate, not notes.
   let query = db.selectFrom('notes').select(HIT_COLUMNS).where('notes.kind', '!=', 'template')
+  if (directoryPredicate !== null) {
+    query = query.where(directoryPredicate)
+  }
 
   // `filters.tags` are folded keys (filter-query) matched against the stored
   // `tag_key` — folded in JS at index time, since SQLite's lower() is

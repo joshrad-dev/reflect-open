@@ -6,7 +6,7 @@ import type { ModClickEvent } from '@/lib/windows/open-in-new-window.ts'
 import { useSettings } from '@/providers/settings-provider.tsx'
 
 /**
- * The shared column template (Subject · Snippet · Tags · Updated) — the header
+ * The shared column template (Title · Snippet · Tags · Updated) — the header
  * row in {@link AllNotesTable} uses the same classes so the columns line up.
  * The selection indicator is positioned beside the row, outside the column flow.
  */
@@ -14,6 +14,7 @@ export const ALL_NOTES_GRID =
   'grid grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,8rem)_6rem] items-center gap-4 pl-12 pr-7'
 
 interface AllNotesRowProps {
+  depth?: number
   note: NoteListEntry
   /** Whether this row is part of the current multi-selection. */
   selected: boolean
@@ -21,17 +22,18 @@ interface AllNotesRowProps {
   onSelect: (path: string, event: Pick<MouseEvent, 'metaKey' | 'ctrlKey' | 'shiftKey'>) => void
   /** Indicator click: toggle this row (Shift extends a range) — V1's check gutter. */
   onToggle: (path: string, event: Pick<MouseEvent, 'shiftKey'>) => void
-  /** Open the note (subject click / double-click). */
+  /** Open the note (title click / double-click). */
   onOpen: (path: string, event?: ModClickEvent) => void
 }
 
 /**
  * One note in the All Notes table. Clicking the row body **selects** it (V1's
  * multi-select: plain = exclusive, ⌘/Ctrl = toggle, Shift = range); the
- * indicator gutter toggles it; the subject or a double-click opens the note.
+ * indicator gutter toggles it; the title or a double-click opens the note.
  */
 export const AllNotesRow = memo(function AllNotesRow({
   note,
+  depth = 0,
   selected,
   onSelect,
   onToggle,
@@ -90,13 +92,16 @@ export const AllNotesRow = memo(function AllNotesRow({
           }
           onOpen(note.path, event)
         }}
+        style={{ paddingLeft: depth * 20 }}
+        aria-label={displayNoteTitle(note.title)}
         onDoubleClick={(event) => event.stopPropagation()}
         className={cn(
           'truncate text-left text-[13px] font-medium focus-visible:outline-none',
           selected ? 'text-accent' : 'text-text',
         )}
       >
-        {displayNoteTitle(note.title)}
+        <span className="block truncate">{displayNoteTitle(note.title)}</span>
+        <span className="block truncate text-[11px] font-normal text-text-muted">{note.path}</span>
       </button>
       <span
         className={cn('truncate text-[13px]', selected ? 'text-accent' : 'text-text-secondary')}

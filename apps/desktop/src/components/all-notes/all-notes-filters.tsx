@@ -7,7 +7,7 @@ import { FilterTab } from './filter-tab.tsx'
 interface AllNotesFiltersProps {
   /** The active tag filter (`null` = the All tab). */
   tag: string | null
-  /** Every tag carried by a non-daily note, for the Custom menu. */
+  /** Every tag carried by a saved note, for the Custom menu. */
   facets: NoteTagFacet[]
   onSelect: (tag: string | null) => void
 }

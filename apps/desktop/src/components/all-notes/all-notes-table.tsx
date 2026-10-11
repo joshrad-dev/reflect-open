@@ -4,13 +4,22 @@ import type { NoteListEntry } from '@reflect/core'
 import type { ListSelection } from '@/lib/selection/use-list-selection.ts'
 import { cn } from '@/lib/utils.ts'
 import type { ModClickEvent } from '@/lib/windows/open-in-new-window.ts'
+import type { NoteSort } from '@/lib/note-browser.ts'
+import { FolderTreeRow } from './folder-tree-row.tsx'
+import type { NoteTreeRow } from '@/lib/note-tree.ts'
+import { NoteSortHeader } from './note-sort-header.tsx'
 import { ALL_NOTES_GRID, AllNotesRow } from './all-notes-row.tsx'
 
 interface AllNotesTableProps {
   /** `undefined` while the index query settles (renders nothing, not "empty"). */
   notes: NoteListEntry[] | undefined
+  rows: NoteTreeRow<NoteListEntry>[]
+  onToggleFolder: (path: string) => void
+  sort: NoteSort
+  onSort: (sort: NoteSort) => void
   /** The active tag filter, for the empty state's wording. */
   tag: string | null
+  directory?: string | null
   /** The shared row selection (click/keyboard); rows read their selected state from it. */
   selection: ListSelection
   onOpen: (path: string, event?: ModClickEvent) => void
@@ -35,12 +44,16 @@ const ESTIMATED_ROW_HEIGHT = 48
  */
 export function AllNotesTable({
   notes,
+  rows,
+  onToggleFolder,
+  sort,
+  onSort,
   tag,
+  directory = null,
   selection,
   onOpen,
   registerScrollToIndex,
 }: AllNotesTableProps): ReactElement | null {
-  const rows = notes ?? []
   const { clickSelect, isSelected } = selection
   const virtualizerRef = useRef<VirtualizerHandle>(null)
   const handleToggle = useCallback(
@@ -57,52 +70,64 @@ export function AllNotesTable({
   useEffect(() => {
     registerScrollToIndex((index) => {
       if (index >= 0) {
-        virtualizerRef.current?.scrollToIndex(index, { align: 'nearest' })
+        const noteRow = rows.filter((row) => row.kind === 'note')[index]
+        const treeIndex = noteRow === undefined ? -1 : rows.indexOf(noteRow)
+        if (treeIndex >= 0) virtualizerRef.current?.scrollToIndex(treeIndex, { align: 'nearest' })
       }
     })
-  }, [registerScrollToIndex])
+  }, [registerScrollToIndex, rows])
 
   if (notes === undefined) {
     return null
   }
   return (
     <>
-      <div
-        className={cn(
-          ALL_NOTES_GRID,
-          'sticky top-0 z-10 border-b border-border bg-surface py-3 text-[13px] font-medium leading-none text-text-secondary shadow-sm',
-        )}
-      >
-        <span>Subject</span>
-        <span>Snippet</span>
-        <span className="text-right">Tags</span>
-        <span className="text-right">Updated</span>
-      </div>
-      {notes.length === 0 ? (
+      <NoteSortHeader
+        sort={sort}
+        onSort={onSort}
+        columns={['title', 'snippet', 'tags', 'updated']}
+        className={cn(ALL_NOTES_GRID, 'sticky top-0 z-10 shadow-sm')}
+      />
+      {notes.length === 0 && (
         <p className="py-8 pl-12 pr-7 text-sm text-text-muted">
-          {tag === null ? 'No notes yet.' : `No notes tagged #${tag}.`}
+          {tag === null
+            ? directory === null
+              ? 'No notes yet.'
+              : 'No notes in this folder.'
+            : `No notes tagged #${tag}.`}
         </p>
-      ) : (
-        <Virtualizer
-          ref={virtualizerRef}
-          as="ul"
-          item="li"
-          data={rows}
-          itemSize={ESTIMATED_ROW_HEIGHT}
-          bufferSize={10 * ESTIMATED_ROW_HEIGHT}
-        >
-          {(note) => (
+      )}
+      <Virtualizer
+        ref={virtualizerRef}
+        as="ul"
+        item="li"
+        data={rows}
+        itemSize={ESTIMATED_ROW_HEIGHT}
+        bufferSize={10 * ESTIMATED_ROW_HEIGHT}
+      >
+        {(row) =>
+          row.kind === 'folder' ? (
+            <FolderTreeRow
+              key={row.path}
+              path={row.path}
+              depth={row.depth}
+              expanded={row.expanded}
+              onToggle={onToggleFolder}
+              className="text-[13px]"
+            />
+          ) : (
             <AllNotesRow
-              key={note.path}
-              note={note}
-              selected={isSelected(note.path)}
+              key={row.note.path}
+              note={row.note}
+              depth={row.depth}
+              selected={isSelected(row.note.path)}
               onSelect={clickSelect}
               onToggle={handleToggle}
               onOpen={onOpen}
             />
-          )}
-        </Virtualizer>
-      )}
+          )
+        }
+      </Virtualizer>
     </>
   )
 }

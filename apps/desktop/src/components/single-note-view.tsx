@@ -1,4 +1,7 @@
 import type { ReactElement, ReactNode } from 'react'
+import { dailyDateForNotePath } from '@/lib/note-browser.ts'
+import { formatDayLabel } from '@/lib/dates.ts'
+import { useSettings } from '@/providers/settings-provider.tsx'
 import { NotePane } from '@/components/note-pane.tsx'
 import { ScrollRestored } from '@/routing/scroll-restore.tsx'
 
@@ -28,13 +31,22 @@ interface SingleNoteViewProps {
  * included) focuses it.
  */
 export function SingleNoteView({ path, dailyDate, heading }: SingleNoteViewProps): ReactElement {
+  const { settings } = useSettings()
+  const date = dailyDate ?? dailyDateForNotePath(path)
+  const noteHeading =
+    heading ??
+    (date !== null ? (
+      <h2 className="reflect-daily-subject reflect-content-gutter mb-3">
+        {formatDayLabel(date, settings.dateFormat)}
+      </h2>
+    ) : null)
   return (
     <ScrollRestored className="h-full overflow-auto px-0">
       <div className="mx-auto flex min-h-full w-full max-w-full flex-col py-8">
-        {heading}
+        {noteHeading}
         <NotePane
           path={path}
-          {...(dailyDate !== undefined ? { dailyDate } : {})}
+          {...(date !== null ? { dailyDate: date } : {})}
           lazy
           autoFocus
           className="flex grow flex-col"

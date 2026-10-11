@@ -1,6 +1,9 @@
 import { useState, type ReactElement } from 'react'
 import { Virtualizer } from 'virtua'
 import { useQueryClient } from '@tanstack/react-query'
+import { FolderTreeRow } from '@/components/all-notes/folder-tree-row.tsx'
+import { useNoteTree } from '@/hooks/use-note-tree.ts'
+import type { NoteSort } from '@/lib/note-browser.ts'
 import { toggleNotePinned } from '@/lib/note-pin.ts'
 import { NoteDeleteDrawer } from '@/mobile/note-delete-drawer.tsx'
 import {
@@ -12,6 +15,10 @@ import { useGraph } from '@/providers/graph-provider.tsx'
 
 interface NoteRowListProps {
   rows: NoteRowModel[]
+  paths?: readonly string[]
+  directory?: string | null
+  sort?: NoteSort
+  emptyMessage?: string | undefined
   onOpen: (path: string) => void
   /** Called after a swipe action successfully deletes a row. */
   onDeleted: (path: string) => void
@@ -22,7 +29,16 @@ interface NoteRowListProps {
  * content line, relative timestamp, a pin marker on pinned notes) shared by
  * the plain list, the filtered feed, and search results — V1's one row shape.
  */
-export function NoteRowList({ rows, onOpen, onDeleted }: NoteRowListProps): ReactElement {
+export function NoteRowList({
+  rows,
+  paths = [],
+  directory = null,
+  sort,
+  emptyMessage,
+  onOpen,
+  onDeleted,
+}: NoteRowListProps): ReactElement {
+  const tree = useNoteTree(rows, paths, directory, sort)
   const { graph } = useGraph()
   const queryClient = useQueryClient()
   const [revealedPath, setRevealedPath] = useState<string | null>(null)
@@ -48,25 +64,42 @@ export function NoteRowList({ rows, onOpen, onDeleted }: NoteRowListProps): Reac
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         onScroll={() => setRevealedPath(null)}
       >
-        <Virtualizer as="ul" item="li" data={rows} itemSize={NOTE_ROW_HEIGHT} bufferSize={640}>
-          {(row) => (
-            <SwipeableNoteRow
-              key={row.path}
-              row={row}
-              revealed={revealedPath === row.path}
-              onReveal={() => setRevealedPath(row.path)}
-              onClose={() => setRevealedPath(null)}
-              onBeginInteraction={() =>
-                setRevealedPath((current) => (current === row.path ? current : null))
-              }
-              onOpen={() => onOpen(row.path)}
-              onTogglePin={() => togglePin(row)}
-              onDelete={() => {
-                setRevealedPath(null)
-                setDeletePath(row.path)
-              }}
-            />
-          )}
+        {rows.length === 0 && emptyMessage !== undefined && (
+          <p className="px-4 py-8 text-sm text-text-muted">{emptyMessage}</p>
+        )}
+        <Virtualizer as="ul" item="li" data={tree.rows} itemSize={NOTE_ROW_HEIGHT} bufferSize={640}>
+          {(entry) => {
+            if (entry.kind === 'folder')
+              return (
+                <FolderTreeRow
+                  key={entry.path}
+                  path={entry.path}
+                  depth={entry.depth}
+                  expanded={entry.expanded}
+                  onToggle={tree.toggleFolder}
+                />
+              )
+            const row = entry.note
+            return (
+              <SwipeableNoteRow
+                key={row.path}
+                row={row}
+                depth={entry.depth}
+                revealed={revealedPath === row.path}
+                onReveal={() => setRevealedPath(row.path)}
+                onClose={() => setRevealedPath(null)}
+                onBeginInteraction={() =>
+                  setRevealedPath((current) => (current === row.path ? current : null))
+                }
+                onOpen={() => onOpen(row.path)}
+                onTogglePin={() => togglePin(row)}
+                onDelete={() => {
+                  setRevealedPath(null)
+                  setDeletePath(row.path)
+                }}
+              />
+            )
+          }}
         </Virtualizer>
       </div>
       {deletePath !== null ? (

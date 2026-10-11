@@ -1,5 +1,8 @@
 import type { ReactElement } from 'react'
 import { isUntitledNotePath } from '@reflect/core'
+import { dailyDateForNotePath } from '@/lib/note-browser.ts'
+import { formatDayLabel } from '@/lib/dates.ts'
+import { useSettings } from '@/providers/settings-provider.tsx'
 import { NotePane } from '@/components/note-pane.tsx'
 import { IncomingBacklinks } from '@/mobile/incoming-backlinks.tsx'
 import { MOBILE_CONTENT_GUTTER } from '@/mobile/mobile-content-gutter.ts'
@@ -21,6 +24,8 @@ import { useRouter } from '@/routing/router.tsx'
  */
 export function MobileNote({ path }: { path: string }): ReactElement {
   const { back, canBack, navigate } = useRouter()
+  const { settings } = useSettings()
+  const dailyDate = dailyDateForNotePath(path)
   const untitled = isUntitledNotePath(path)
 
   return (
@@ -29,7 +34,13 @@ export function MobileNote({ path }: { path: string }): ReactElement {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <MobileScreenHeader
-        title={untitled ? 'New note' : 'Edit note'}
+        title={
+          dailyDate !== null
+            ? formatDayLabel(dailyDate, settings.dateFormat)
+            : untitled
+              ? 'New note'
+              : 'Edit note'
+        }
         onBack={() => (canBack ? back() : navigate({ kind: 'today' }))}
         trailing={
           <NoteActionsMenu
@@ -53,6 +64,7 @@ export function MobileNote({ path }: { path: string }): ReactElement {
         <div className="flex min-h-full flex-col">
           <NotePane
             path={path}
+            {...(dailyDate !== null ? { dailyDate } : {})}
             lazy
             autoFocus={untitled}
             showBacklinks={false}

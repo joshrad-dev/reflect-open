@@ -1,3 +1,4 @@
+import { useNoteTree } from '@/hooks/use-note-tree.ts'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { foldTag, isDaily, listNotes, listNoteTags } from '@reflect/core'
@@ -11,7 +12,9 @@ import { useListSelection } from '@/lib/selection/use-list-selection.ts'
 import { useScrollRestoration } from '@/lib/use-scroll-restoration.ts'
 import { useScrollToIndexBridge } from '@/lib/use-scroll-to-index-bridge.ts'
 import { useGraph } from '@/providers/graph-provider.tsx'
-import { routeForPath } from '@/routing/route.ts'
+import { DEFAULT_NOTE_SORT, sortNotes, type NoteSort } from '@/lib/note-browser.ts'
+import { useNoteBrowserPaths } from '@/hooks/use-note-browser-paths.ts'
+import { NoteBreadcrumbs } from './note-breadcrumbs.tsx'
 import { useRouter } from '@/routing/router.tsx'
 import { AllNotesFilters } from './all-notes-filters.tsx'
 import { AllNotesTable } from './all-notes-table.tsx'
@@ -21,19 +24,21 @@ import { useAllNotesKeyboard } from './use-all-notes-keyboard.ts'
 import { isModEvent } from '@meowdown/core'
 
 interface AllNotesScreenProps {
-  /** Active tag filter carried by the route (`null` = all non-daily notes). */
+  /** Active tag filter carried by the route (`null` = all saved notes). */
   tag: string | null
+  /** Directory being browsed; null shows every saved note. */
+  directory?: string | null
+  sort?: NoteSort | undefined
 }
 
 /**
- * The All Notes screen (a routed view, like settings): every non-daily note,
+ * The All Notes screen (a routed view, like settings): every saved regular or daily note,
  * newest first, filterable by tag. The active tag lives on the route so
- * back/forward and "open a note, come back" keep the filter. Daily notes are
- * deliberately absent from the unfiltered view, but appear when they match the
- * active tag.
+ * back/forward and "open a note, come back" keep the filter. Folder navigation
+ * shows direct children, while the root lists all notes.
  *
  * Rows are multi-selectable (V1 parity): click to select (⌘ toggle, Shift
- * range), the indicator gutter toggles, the subject or a double-click opens.
+ * range), the indicator gutter toggles, the title or a double-click opens.
  * Keyboard shortcuts act on the selection — ↑/↓ (Shift to extend), ⌘A select
  * all, Return open, ⌘⌫ trash (to the OS trash, after a confirm), Esc clear.
  *
@@ -41,7 +46,7 @@ interface AllNotesScreenProps {
  * so the header and filter bar stay put while the virtualized table scrolls,
  * wired to the router's per-entry scroll memory by hand.
  */
-export function AllNotesScreen({ tag }: AllNotesScreenProps): ReactElement {
+export function AllNotesScreen({ tag, directory = null, sort }: AllNotesScreenProps): ReactElement {
   const { graph } = useGraph()
   const { navigate } = useRouter()
   const navigateNoteLink = useNoteLinkNavigation()
@@ -57,7 +62,9 @@ export function AllNotesScreen({ tag }: AllNotesScreenProps): ReactElement {
   const bridgeReady = useBridgeReady()
   const enabled = bridgeReady && graph !== null
 
-  const { data: notes } = useQuery({
+  const browserPaths = useNoteBrowserPaths()
+  const selectedSort = sort ?? DEFAULT_NOTE_SORT
+  const { data: listedNotes } = useQuery({
     queryKey: queryKeys.index.allNotesWithTag(graph?.root, tag === null ? null : foldTag(tag)),
     queryFn: () => listNotes({ tag }),
     enabled,
@@ -68,23 +75,45 @@ export function AllNotesScreen({ tag }: AllNotesScreenProps): ReactElement {
     enabled,
   })
 
+  const notes = useMemo(
+    () =>
+      listedNotes === undefined
+        ? undefined
+        : sortNotes(
+            listedNotes.filter(
+              (note) => directory === null || note.path.startsWith(`${directory}/`),
+            ),
+            selectedSort,
+          ),
+    [listedNotes, directory, selectedSort],
+  )
   const ready = notes !== undefined
   const { onScroll } = useScrollRestoration(scrollElement, ready)
 
   // The flat, render-order paths the selection and its shortcuts act on.
-  const orderedPaths = useMemo(() => (notes ?? []).map((note) => note.path), [notes])
+  const tree = useNoteTree(notes ?? [], browserPaths, directory, selectedSort)
+  const orderedPaths = useMemo(
+    () => tree.rows.flatMap((row) => (row.kind === 'note' ? row.note.path : [])),
+    [tree.rows],
+  )
   const selection = useListSelection(orderedPaths)
   const openNote = useCallback(
     (path: string, event?: ModClickEvent) =>
       navigateNoteLink({
-        target: routeForPath(path),
+        target: { kind: 'note', path },
         openInNewWindow: event !== undefined && isModEvent(event),
       }),
     [navigateNoteLink],
   )
   const handleFilterSelect = useCallback(
-    (next: string | null) => navigate({ kind: 'allNotes', tag: next }),
-    [navigate],
+    (next: string | null) =>
+      navigate({
+        kind: 'allNotes',
+        tag: next,
+        ...(directory === null ? {} : { directory }),
+        ...(sort === undefined ? {} : { sort }),
+      }),
+    [navigate, directory, sort],
   )
 
   // The bulk-trash confirm: the screen owns whether it's open and which paths it
@@ -132,7 +161,17 @@ export function AllNotesScreen({ tag }: AllNotesScreenProps): ReactElement {
       className="flex h-full min-h-0 flex-col outline-none"
     >
       <header className="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-border py-4 pl-12 pr-7">
-        <h1 className="text-[15px] font-semibold text-text">Notes</h1>
+        <NoteBreadcrumbs
+          directory={directory}
+          onNavigate={(next) =>
+            navigate({
+              kind: 'allNotes',
+              tag,
+              directory: next,
+              ...(sort === undefined ? {} : { sort }),
+            })
+          }
+        />
         <div className="flex flex-wrap items-center gap-3">
           {trashableSelectedPaths.length > 0 ? (
             <Button
@@ -163,8 +202,14 @@ export function AllNotesScreen({ tag }: AllNotesScreenProps): ReactElement {
         className="min-h-0 flex-1 overflow-auto"
       >
         <AllNotesTable
+          key={directory ?? 'all'}
           notes={notes}
+          rows={tree.rows}
+          onToggleFolder={tree.toggleFolder}
+          sort={selectedSort}
+          onSort={(next) => navigate({ kind: 'allNotes', tag, directory, sort: next })}
           tag={tag}
+          directory={directory}
           selection={selection}
           onOpen={openNote}
           registerScrollToIndex={registerScrollToIndex}

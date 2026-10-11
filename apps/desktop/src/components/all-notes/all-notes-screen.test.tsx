@@ -135,8 +135,15 @@ beforeEach(() => {
 })
 
 function RouteProbe(): ReactElement {
-  const { route } = useRouter()
-  return <output data-testid="route">{JSON.stringify(route)}</output>
+  const { route, back } = useRouter()
+  return (
+    <>
+      <output data-testid="route">{JSON.stringify(route)}</output>
+      <button type="button" onClick={back}>
+        History back
+      </button>
+    </>
+  )
 }
 
 /** Surfaces the operations store so tests can assert a failure was reported. */
@@ -151,7 +158,13 @@ function OperationsProbe(): ReactElement {
 
 function RoutedScreen(): ReactElement {
   const { route } = useRouter()
-  return <AllNotesScreen tag={route.kind === 'allNotes' ? route.tag : null} />
+  return (
+    <AllNotesScreen
+      tag={route.kind === 'allNotes' ? route.tag : null}
+      directory={route.kind === 'allNotes' ? (route.directory ?? null) : null}
+      sort={route.kind === 'allNotes' ? route.sort : undefined}
+    />
+  )
 }
 
 /** Navigates to the already-active route — the sidebar-click-while-here case. */
@@ -190,6 +203,98 @@ function probedRoute(view: Awaited<ReturnType<typeof renderScreen>>): unknown {
 }
 
 describe('AllNotesScreen', () => {
+  it('sorts by Title and Updated in either direction and keeps sorting while browsing', async () => {
+    const view = await renderScreen()
+    await expect.element(view.getByText('Health Stacked')).toBeVisible()
+    expect(view.getByRole('button', { name: 'Browse folders' }).query()).toBeNull()
+    expect(view.getByText('Subject', { exact: true }).query()).toBeNull()
+    await view.getByRole('button', { name: 'Title', exact: true }).click()
+    await view.getByRole('button', { name: 'Title', exact: true }).click()
+    expect(probedRoute(view)).toMatchObject({ sort: { column: 'title', direction: 'descending' } })
+    await expect
+      .poll(
+        () =>
+          view
+            .getByRole('button', { name: 'Tokyo Gâteau' })
+            .element()
+            .compareDocumentPosition(
+              view.getByRole('button', { name: 'Health Stacked' }).element(),
+            ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      .toBeTruthy()
+    await view.getByRole('button', { name: 'Updated', exact: true }).click()
+    await expect
+      .poll(
+        () =>
+          view
+            .getByRole('button', { name: 'Health Stacked' })
+            .element()
+            .compareDocumentPosition(view.getByRole('button', { name: 'Tokyo Gâteau' }).element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      .toBeTruthy()
+    await view.getByRole('button', { name: 'Updated', exact: true }).click()
+    await expect
+      .poll(
+        () =>
+          view
+            .getByRole('button', { name: 'Tokyo Gâteau' })
+            .element()
+            .compareDocumentPosition(
+              view.getByRole('button', { name: 'Health Stacked' }).element(),
+            ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      .toBeTruthy()
+    await view.getByRole('button', { name: 'Folder notes' }).click()
+    expect(view.getByText('Health Stacked').query()).toBeNull()
+    await view.getByRole('button', { name: 'Folder notes' }).click()
+    await expect.element(view.getByText('Health Stacked')).toBeVisible()
+    expect(probedRoute(view)).toMatchObject({
+      sort: { column: 'updated', direction: 'ascending' },
+    })
+    await view.unmount()
+  })
+
+  it('expands nested folders by default and collapses each subtree independently', async () => {
+    mockInvoke.mockImplementation(async (command, args) => {
+      if (command !== 'db_query') return null
+      const sql = String(args['sql'])
+      if (sql.includes('group by')) return facetRows
+      if (sql.includes('"preview"'))
+        return [
+          ...noteRows,
+          taggedDailyRow,
+          { ...noteRows[0], path: 'notes/projects/plan.md', title: 'Project plan' },
+        ]
+      return tagRows
+    })
+    const view = await renderScreen()
+    await expect.element(view.getByText('Health Stacked')).toBeVisible()
+    await expect.element(view.getByText('June 9, 2026')).toBeVisible()
+    await expect.element(view.getByText('Project plan')).toBeVisible()
+    await expect
+      .element(view.getByRole('button', { name: 'Folder projects' }))
+      .toHaveAttribute('aria-expanded', 'true')
+    await view.getByRole('button', { name: 'Folder projects' }).click()
+    expect(view.getByText('Project plan').query()).toBeNull()
+    await expect.element(view.getByText('Health Stacked')).toBeVisible()
+    await view.getByRole('button', { name: 'Folder notes' }).click()
+    expect(view.getByText('Health Stacked').query()).toBeNull()
+    expect(view.getByRole('button', { name: 'Folder projects' }).query()).toBeNull()
+    await expect.element(view.getByText('June 9, 2026')).toBeVisible()
+    expect(probedRoute(view)).toEqual({ kind: 'allNotes', tag: null })
+    await view.getByRole('button', { name: 'Folder notes' }).click()
+    await expect.element(view.getByText('Health Stacked')).toBeVisible()
+    expect(view.getByText('Project plan').query()).toBeNull()
+    await view.getByRole('button', { name: 'Folder projects' }).click()
+    await expect.element(view.getByText('Project plan')).toBeVisible()
+    await view.getByRole('button', { name: 'June 9, 2026' }).click()
+    expect(probedRoute(view)).toEqual({ kind: 'note', path: 'daily/2026-06-09.md' })
+    await view.getByRole('button', { name: 'History back' }).click()
+    expect(probedRoute(view)).toEqual({ kind: 'allNotes', tag: null })
+    await view.unmount()
+  })
+
   it('lists non-daily notes with subject, snippet, tags, and updated columns', async () => {
     const view = await renderScreen()
 
@@ -400,7 +505,7 @@ describe('AllNotesScreen', () => {
       .element(view.getByRole('button', { name: /#travel/, expanded: false }))
       .toBeInTheDocument()
     await view.getByRole('button', { name: 'June 9, 2026' }).click()
-    expect(probedRoute(view)).toEqual({ kind: 'daily', date: '2026-06-09' })
+    expect(probedRoute(view)).toEqual({ kind: 'note', path: 'daily/2026-06-09.md' })
     await view.unmount()
   })
 

@@ -71,6 +71,8 @@ export function MobileScreen({
           query={allQuery}
           onQueryChange={onAllQueryChange}
           tag={route.tag}
+          directory={route.directory ?? null}
+          sort={route.sort}
           filters={allFilters}
           onFiltersChange={onAllFiltersChange}
         />

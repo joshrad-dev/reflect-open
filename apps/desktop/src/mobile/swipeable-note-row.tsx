@@ -7,7 +7,7 @@ import { useRowSwipe } from '@/mobile/use-row-swipe.ts'
 import { useSettings } from '@/providers/settings-provider.tsx'
 
 /** V1's fixed row height (px) — placeholder resolution never causes jumps. */
-export const NOTE_ROW_HEIGHT = 64
+export const NOTE_ROW_HEIGHT = 80
 
 /** One rendered row with query-aware title and snippet segments. */
 export interface NoteRowModel {
@@ -24,6 +24,7 @@ export interface NoteRowModel {
 }
 
 interface SwipeableNoteRowProps {
+  depth?: number
   row: NoteRowModel
   revealed: boolean
   onReveal: () => void
@@ -53,6 +54,7 @@ function renderHighlightedSegments(segments: HighlightSegment[]): ReactNode {
  */
 export function SwipeableNoteRow({
   row,
+  depth = 0,
   revealed,
   onReveal,
   onClose,
@@ -75,7 +77,7 @@ export function SwipeableNoteRow({
   return (
     <div
       className="relative overflow-hidden border-b border-border"
-      style={{ height: NOTE_ROW_HEIGHT }}
+      style={{ height: NOTE_ROW_HEIGHT, paddingLeft: 16 + depth * 20 }}
     >
       <div
         className="absolute inset-y-0 right-0 flex"
@@ -121,7 +123,7 @@ export function SwipeableNoteRow({
           onOpen()
         }}
         className="absolute inset-0 flex w-full flex-col justify-center gap-0.5 overflow-hidden bg-background px-4 text-left"
-        style={{ height: NOTE_ROW_HEIGHT }}
+        style={{ height: NOTE_ROW_HEIGHT, paddingLeft: 16 + depth * 20 }}
       >
         <span className="flex w-full items-baseline gap-2">
           {row.isPinned ? (
@@ -137,6 +139,7 @@ export function SwipeableNoteRow({
             {formatRecencyLabel(row.mtime, settings)}
           </span>
         </span>
+        <span className="w-full truncate text-[11px] text-text-muted">{row.path}</span>
         {row.snippet.length > 0 ? (
           <span className="w-full truncate text-xs text-text-muted">
             {renderHighlightedSegments(row.snippet)}

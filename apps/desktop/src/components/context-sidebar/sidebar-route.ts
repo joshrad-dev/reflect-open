@@ -1,3 +1,4 @@
+import { dailyDateForNotePath } from '@/lib/note-browser.ts'
 import type { Route } from '@/routing/route.ts'
 
 /** What the AppShell's right context region should describe for a route. */
@@ -16,8 +17,10 @@ export function contextSidebarTarget(route: Route, today: string): ContextSideba
       return { kind: 'daily', date: today }
     case 'daily':
       return { kind: 'daily', date: route.date }
-    case 'note':
-      return { kind: 'note', path: route.path }
+    case 'note': {
+      const date = dailyDateForNotePath(route.path)
+      return date === null ? { kind: 'note', path: route.path } : { kind: 'daily', date }
+    }
     case 'allNotes':
     case 'search':
     case 'tasks':

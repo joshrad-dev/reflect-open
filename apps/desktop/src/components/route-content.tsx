@@ -46,7 +46,9 @@ function RouteContentBody(): ReactElement {
     case 'allNotes':
       // Owns its scroll container (virtualized table + fixed header), so no
       // ScrollRestored wrapper — same shape as the daily stream.
-      return <AllNotesScreen tag={route.tag} />
+      return (
+        <AllNotesScreen tag={route.tag} directory={route.directory ?? null} sort={route.sort} />
+      )
     case 'tasks':
       // Owns its scroll container (a grouped list with a fixed header), so no
       // ScrollRestored wrapper — same shape as All Notes.

@@ -161,13 +161,10 @@ const SEARCH_LIMIT = 50
 /**
  * How the All tab runs a composed query: free text is a ranked, capped
  * search; without text the query is the list itself — uncapped (the screen
- * virtualizes), notes-only (dailies live in the stream unless the Daily
- * filter asks for them), pinned first (V1's list order).
+ * virtualizes), including saved daily notes, pinned first (V1's list order).
  */
 export function searchPlanFor(parsed: ParsedSearchQuery): FilteredSearchOptions {
-  return parsed.text !== ''
-    ? { limit: SEARCH_LIMIT }
-    : { limit: null, pinnedFirst: true, notesOnly: true }
+  return parsed.text !== '' ? { limit: SEARCH_LIMIT } : { limit: null, pinnedFirst: true }
 }
 
 /** The updated-at badge's relative presets. */

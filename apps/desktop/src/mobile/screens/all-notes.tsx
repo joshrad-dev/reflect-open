@@ -1,5 +1,5 @@
 import { useDeferredValue, useMemo, useRef, type ReactElement } from 'react'
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, FileText, SearchX } from 'lucide-react'
 import {
   foldTag,
@@ -30,7 +30,10 @@ import {
 } from '@/mobile/top-bar.tsx'
 import { useArrivalFocus } from '@/mobile/use-arrival-focus.ts'
 import { useGraph } from '@/providers/graph-provider.tsx'
-import { routeForPath } from '@/routing/route.ts'
+import { DEFAULT_NOTE_SORT, noteDirectories, sortNotes, type NoteSort } from '@/lib/note-browser.ts'
+import { NoteSortHeader } from '@/components/all-notes/note-sort-header.tsx'
+import { NoteBreadcrumbs } from '@/components/all-notes/note-breadcrumbs.tsx'
+import { useNoteBrowserPaths } from '@/hooks/use-note-browser-paths.ts'
 import { useRouter } from '@/routing/router.tsx'
 
 /** A search hit resolved into the shared row shape. */
@@ -59,6 +62,9 @@ export function matchingTagFacets(facets: NoteTagFacet[], partial: string): Note
 interface MobileAllNotesProps {
   /** The live search text — lifted to the shell so it survives navigation. */
   query: string
+  /** Directory being browsed; null shows every saved note. */
+  directory?: string | null
+  sort?: NoteSort | undefined
   onQueryChange: (query: string) => void
   /** The active tag filter from the `allNotes` route (`null` = every note). */
   tag: string | null
@@ -72,7 +78,7 @@ interface MobileAllNotesProps {
  * embedded search bar and AND-composed filter badges. Everything is one
  * search path ({@link buildAllNotesSearch} → `searchWithFilters`, run per
  * {@link searchPlanFor}): the plain list is the empty query's recall feed
- * (notes only, pinned first, uncapped), badges and typed tokens narrow it,
+ * (regular and daily notes, pinned first, uncapped), badges and typed tokens narrow it,
  * and free text switches to ranked FTS. A trailing `#…` token switches the bar into
  * tag matching (V1): suggestions replace the badge row until the tag is
  * picked or the token completed. The route's tag (a tag tap landed here)
@@ -80,6 +86,8 @@ interface MobileAllNotesProps {
  */
 export function MobileAllNotes({
   query,
+  directory = null,
+  sort,
   onQueryChange,
   tag,
   filters,
@@ -87,6 +95,11 @@ export function MobileAllNotes({
 }: MobileAllNotesProps): ReactElement {
   const { graph } = useGraph()
   const { navigate, back, arrivalSeq, arrivalFocusEditor } = useRouter()
+  const browserPaths = useNoteBrowserPaths()
+  const selectedSort = sort ?? DEFAULT_NOTE_SORT
+  const directories = noteDirectories(browserPaths, directory)
+  if (selectedSort.column === 'title' && selectedSort.direction === 'descending')
+    directories.reverse()
   const queryClient = useQueryClient()
   const bridgeReady = useBridgeReady()
   const enabled = bridgeReady && graph !== null
@@ -112,15 +125,28 @@ export function MobileAllNotes({
     enabled,
   })
   const { data: hits } = useQuery({
-    queryKey: queryKeys.index.mobileAllNotesWithSearch(graph?.root, parsed),
-    queryFn: () => searchWithFilters(parsed, searchPlanFor(parsed)),
+    queryKey: queryKeys.index.mobileAllNotesWithSearch(graph?.root, parsed, directory),
+    queryFn: () =>
+      searchWithFilters(parsed, {
+        ...searchPlanFor(parsed),
+        directory,
+        includeDescendants: true,
+      }),
     enabled,
     // Typing re-keys the query as the deferred value settles; holding the
     // previous rows avoids a blank flash between keystrokes.
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey.at(-1) === directory ? previousData : undefined,
   })
 
-  const rows = useMemo(() => (hits ?? []).map(rowForHit), [hits])
+  const rows = useMemo(
+    () =>
+      sortNotes(
+        (hits ?? []).map((hit) => ({ ...hit, snippet: hit.preview, tags: [], hit })),
+        selectedSort,
+      ).map((entry) => rowForHit(entry.hit)),
+    [hits, selectedSort],
+  )
   const pristine = parsed.text === '' && !parsed.filtered
 
   const removeDeletedRow = (path: string): void => {
@@ -148,6 +174,19 @@ export function MobileAllNotes({
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <MobileTopBar>
+        <MobileTopBarRow className="h-auto min-h-12 py-2">
+          <NoteBreadcrumbs
+            directory={directory}
+            onNavigate={(next) =>
+              navigate({
+                kind: 'allNotes',
+                tag,
+                directory: next,
+                ...(sort === undefined ? {} : { sort }),
+              })
+            }
+          />
+        </MobileTopBarRow>
         <MobileTopBarRow>
           {tag !== null && (
             <MobileTopBarIconButton edge="leading" aria-label="Back" onClick={back}>
@@ -174,27 +213,48 @@ export function MobileAllNotes({
               onFiltersChange={onFiltersChange}
               facets={facets ?? []}
               routeTag={tag}
-              onClearRouteTag={() => navigate({ kind: 'allNotes', tag: null })}
+              onClearRouteTag={() =>
+                navigate({
+                  kind: 'allNotes',
+                  tag: null,
+                  directory,
+                  ...(sort === undefined ? {} : { sort }),
+                })
+              }
             />
           )}
         </MobileTopBarScrollableRow>
       </MobileTopBar>
+      <NoteSortHeader
+        sort={selectedSort}
+        onSort={(next) => navigate({ kind: 'allNotes', tag, directory, sort: next })}
+        columns={['title', 'updated']}
+        className="grid grid-cols-[1fr_auto] gap-4 px-4"
+      />
       {/* Undefined hits mean "still fetching" only while the query can run —
           with no bridge/graph it never will, and the empty state is honest. */}
       {enabled && hits === undefined ? (
         <div className="flex flex-1 items-center justify-center" aria-label="Loading notes">
           <Spinner className="size-5 text-text-muted" />
         </div>
-      ) : (hits ?? []).length === 0 ? (
+      ) : (hits ?? []).length === 0 && directories.length === 0 ? (
         pristine ? (
-          <Empty icon={<FileText className="size-6" />} message="No notes yet" />
+          <Empty
+            icon={<FileText className="size-6" />}
+            message={directory === null ? 'No notes yet' : 'No notes in this folder'}
+          />
         ) : (
           <Empty icon={<SearchX className="size-6" />} message="No matches" />
         )
       ) : (
         <NoteRowList
+          key={directory ?? 'all'}
           rows={rows}
-          onOpen={(path) => navigate(routeForPath(path))}
+          paths={browserPaths}
+          directory={directory}
+          sort={selectedSort}
+          emptyMessage={pristine ? undefined : 'No matches'}
+          onOpen={(path) => navigate({ kind: 'note', path })}
           onDeleted={removeDeletedRow}
         />
       )}

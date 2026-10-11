@@ -16,7 +16,7 @@ afterEach(() => {
 })
 
 describe('listNotes', () => {
-  it('lists non-daily notes pinned-first then newest with stored previews and grouped tags', async () => {
+  it('lists regular and daily notes pinned-first then newest with stored previews and grouped tags', async () => {
     mockInvoke
       .mockResolvedValueOnce([
         {
@@ -67,8 +67,8 @@ describe('listNotes', () => {
     const sql = String(args['sql'])
     // The snippet is the stored projection column, not a per-query derivation.
     expect(sql).toContain('"preview"')
-    // `kind = 'note'` excludes dailies (the stream is their home) and templates.
-    expect(sql).toContain('"notes"."kind" = ?')
+    // Only saved notes and daily notes are included; templates remain excluded.
+    expect(sql).toContain('"notes"."kind" in (?, ?)')
     // Pinned notes lead (explicit order first), then recency — V1's list
     // order, via the recallOrder helper shared with filtered-search.
     const pinnedAt = sql.indexOf('"notes"."is_pinned" desc')
@@ -87,9 +87,9 @@ describe('listNotes', () => {
     const [, tagArgs] = mockInvoke.mock.calls[1]!
     const tagSql = String(tagArgs['sql'])
     expect(tagSql).toContain('inner join "notes"')
-    expect(tagSql).toContain('"notes"."kind" = ?')
-    expect(tagSql).not.toContain(' in (')
-    expect(tagArgs['params']).toEqual(['note'])
+    expect(tagSql).toContain('"notes"."kind" in (?, ?)')
+    expect(tagSql).not.toContain('note_path" in (')
+    expect(tagArgs['params']).toEqual(['note', 'daily'])
   })
 
   it('narrows both queries to one tag and includes tagged daily notes', async () => {
@@ -195,7 +195,7 @@ describe('listRecentNotes', () => {
 })
 
 describe('listNoteTags', () => {
-  it('groups tags on the stored key over non-daily notes', async () => {
+  it('groups tags on the stored key over regular and daily notes', async () => {
     mockInvoke.mockResolvedValue([
       { tag: 'Book', count: 3 },
       { tag: 'link', count: 12 },
@@ -210,7 +210,7 @@ describe('listNoteTags', () => {
     const [command, args] = mockInvoke.mock.calls[0]!
     expect(command).toBe('db_query')
     const sql = String(args['sql'])
-    expect(sql).toContain('"notes"."kind" = ?')
+    expect(sql).toContain('"notes"."kind" in (?, ?)')
     expect(sql).toContain('group by "tags"."tag_key"')
   })
 })

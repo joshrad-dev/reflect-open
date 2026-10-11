@@ -111,18 +111,18 @@ describe('searchPlanFor', () => {
 
   it('runs no-text queries as the list itself: uncapped, notes-only, pinned first', () => {
     const plan = searchPlanFor(buildAllNotesSearch('', EMPTY_ALL_NOTES_FILTERS, null))
-    expect(plan).toEqual({ limit: null, pinnedFirst: true, notesOnly: true })
+    expect(plan).toEqual({ limit: null, pinnedFirst: true })
   })
 
   it('treats a badge-only query as a list, not a search', () => {
     const filters = filtersWith({ pinned: true })
     const plan = searchPlanFor(buildAllNotesSearch('', filters, null))
-    expect(plan).toEqual({ limit: null, pinnedFirst: true, notesOnly: true })
+    expect(plan).toEqual({ limit: null, pinnedFirst: true })
   })
 
   it('treats a pending #tag token as no text (it is a suggestion, not a search)', () => {
     const plan = searchPlanFor(buildAllNotesSearch('#boo', EMPTY_ALL_NOTES_FILTERS, null))
-    expect(plan).toEqual({ limit: null, pinnedFirst: true, notesOnly: true })
+    expect(plan).toEqual({ limit: null, pinnedFirst: true })
   })
 })
 

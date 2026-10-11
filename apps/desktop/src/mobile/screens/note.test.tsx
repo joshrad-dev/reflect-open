@@ -6,8 +6,13 @@ import { untitledNotePath } from '@reflect/core'
 import { RouterProvider, useRouter, type NavigateOptions } from '@/routing/router.tsx'
 import { MobileNote } from './note.tsx'
 
+vi.mock('@/providers/settings-provider.tsx', () => ({
+  useSettings: () => ({ settings: { dateFormat: 'mdy' } }),
+}))
+
 const paneProps = vi.hoisted(() => ({
   autoFocus: null as boolean | null,
+  dailyDate: null as string | null,
   className: null as string | null,
   gutterClassName: null as string | null,
 }))
@@ -15,13 +20,16 @@ const paneProps = vi.hoisted(() => ({
 vi.mock('@/components/note-pane.tsx', () => ({
   NotePane: ({
     autoFocus,
+    dailyDate,
     className,
     gutterClassName,
   }: {
     autoFocus?: boolean
+    dailyDate?: string
     className?: string
     gutterClassName?: string
   }) => {
+    paneProps.dailyDate = dailyDate ?? null
     paneProps.autoFocus = autoFocus ?? false
     paneProps.className = className ?? null
     paneProps.gutterClassName = gutterClassName ?? null
@@ -78,6 +86,13 @@ afterEach(async () => {
 })
 
 describe('MobileNote focus contract', () => {
+  it('opens a daily note alone with its date and without focusing the keyboard', async () => {
+    await renderArrival('daily/2026-06-09.md')
+    await expect.element(page.getByRole('heading', { name: /June 9th, 2026/ })).toBeVisible()
+    expect(paneProps.dailyDate).toBe('2026-06-09')
+    expect(paneProps.autoFocus).toBe(false)
+  })
+
   it('labels an existing note screen as edit note', async () => {
     await renderArrival('notes/target.md')
     await expect.element(page.getByRole('heading', { name: 'Edit note' })).toBeVisible()

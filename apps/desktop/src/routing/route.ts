@@ -8,13 +8,14 @@
  * without breaking the shape.
  */
 import { dailyPath, dateFromDailyPath, isDaily } from '@reflect/core'
+import { DEFAULT_NOTE_SORT, type NoteSort } from '@/lib/note-browser.ts'
 import { isIsoDate } from '@/lib/dates.ts'
 
 export type Route =
   | { kind: 'today' }
   | { kind: 'daily'; date: string }
   | { kind: 'note'; path: string }
-  | { kind: 'allNotes'; tag: string | null }
+  | { kind: 'allNotes'; tag: string | null; directory?: string | null; sort?: NoteSort }
   | { kind: 'search'; query: string }
   | { kind: 'tasks' }
   | { kind: 'chat' }
@@ -42,8 +43,17 @@ export function routesEqual(a: Route, b: Route): boolean {
       return a.date === (b as Extract<Route, { kind: 'daily' }>).date
     case 'note':
       return a.path === (b as Extract<Route, { kind: 'note' }>).path
-    case 'allNotes':
-      return a.tag === (b as Extract<Route, { kind: 'allNotes' }>).tag
+    case 'allNotes': {
+      const other = b as Extract<Route, { kind: 'allNotes' }>
+      const firstSort = a.sort ?? DEFAULT_NOTE_SORT
+      const secondSort = other.sort ?? DEFAULT_NOTE_SORT
+      return (
+        a.tag === other.tag &&
+        (a.directory ?? null) === (other.directory ?? null) &&
+        firstSort.column === secondSort.column &&
+        firstSort.direction === secondSort.direction
+      )
+    }
     case 'search':
       return a.query === (b as Extract<Route, { kind: 'search' }>).query
   }

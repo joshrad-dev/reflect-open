@@ -83,8 +83,12 @@ export const queryKeys = {
     mobileAllNotes(root: GraphRoot) {
       return [...this.graph(root), 'mobile-all-notes'] as const
     },
-    mobileAllNotesWithSearch<TSearch>(root: GraphRoot, search: TSearch) {
-      return [...this.mobileAllNotes(root), search] as const
+    mobileAllNotesWithSearch<TSearch>(
+      root: GraphRoot,
+      search: TSearch,
+      directory: string | null = null,
+    ) {
+      return [...this.mobileAllNotes(root), search, directory] as const
     },
     mobileNotePicker(root: GraphRoot, text: string) {
       return [...this.graph(root), 'mobile-note-picker', text] as const
