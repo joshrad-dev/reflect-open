@@ -11,7 +11,6 @@ Reflect is a modern note‑taking tool with a TypeScript codebase. This repo con
 Drawn from the product docs — read these for deeper context:
 [V1 Overview](docs/reflect-v1-overview.md) · [V2 Product Vision](docs/reflect-v2-product-vision.md) · [V2 Grounding Brief](docs/reflect-v2-grounding-brief.md) · [Indexing Strategy](docs/reflect-v2-indexing-strategy.md) · [Sync Strategy](docs/reflect-v2-sync-strategy.md)
 
-
 - **Daily notes first.** The app opens to today's note. All capture flows into the daily note by default.
 - **Association over hierarchy.** `[[Wiki Links]]` replace folders. The note graph is the organizing model; there are no folders.
 - **Markdown is the source of truth.** Notes are `.md` files (`daily/YYYY-MM-DD.md`, `notes/`). SQLite under `.reflect/` is a rebuildable projection of the notes — with one durable exception: the `chat_*` tables hold AI chat history, which is not derivable from markdown. Index wipes and rebuilds must leave them untouched.
@@ -34,19 +33,11 @@ Drawn from the product docs — read these for deeper context:
   short plan before editing and ask for sign-off when the direction affects public
   APIs, migrations, release behavior, or broad UX. Simple localized fixes can
   proceed once the relevant context is understood.
-- **Use a dedicated worktree or branch.** Check `git status` before editing and
-  before staging. Preserve unrelated user changes; ask before publishing if the
-  worktree is dirty, the PR scope is ambiguous, or staging would include changes
-  you did not make.
 - **Prefer the clean design.** Optimize for the correct open-source shape rather
   than the smallest diff. Avoid compatibility shims, dual paths, or legacy behavior
   unless the product/release context requires them.
 - **Verify locally.** Run typecheck, lint, and targeted tests for the code you
   touched. If a required check cannot run, report the reason and the residual risk.
-- **Publish completed work.** When a requested implementation is complete and
-  verified, create or use an appropriate branch, commit the intended changes, push,
-  open a normal ready-for-review PR, and wait for CI/checks, Bugbot, review
-  comments, merge conflicts, and other blockers to settle.
 
 ### Development workflow
 
